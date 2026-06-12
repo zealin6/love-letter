@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>一封情书</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'STKaiti', 'KaiTi', '楷体', 'Noto Serif SC', serif;
+      background: #1a1410;
+      color: #d4c5a9;
+      overflow: hidden;
+      height: 100vh;
+      user-select: none;
+    }
+    canvas { display: block; }
+
+    /* Loading */
+    .loading {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: #1a1410;
+      z-index: 100;
+      transition: opacity 1.5s ease;
+    }
+    .loading.hidden { opacity: 0; pointer-events: none; }
+    .loading .spinner {
+      width: 28px; height: 28px;
+      border: 1px solid rgba(212,197,169,0.15);
+      border-top-color: #d4c5a9;
+      border-radius: 50%;
+      animation: spin 1.2s linear infinite;
+    }
+    .loading span {
+      margin-top: 16px;
+      font-size: 13px;
+      opacity: 0.35;
+      letter-spacing: 4px;
+      font-family: 'STKaiti', 'KaiTi', '楷体', serif;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Header */
+    .header {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      padding: 24px 36px;
+      display: flex;
+      justify-content: space-between;
+      z-index: 10;
+      pointer-events: none;
+    }
+    .header > * { pointer-events: auto; }
+    .header-left {
+      font-size: 13px;
+      opacity: 0.3;
+      letter-spacing: 4px;
+    }
+    .header-right {
+      font-size: 13px;
+      opacity: 0.3;
+      letter-spacing: 2px;
+    }
+
+    /* Letter overlay */
+    .letter-overlay {
+      position: fixed;
+      right: 60px;
+      top: 50%;
+      transform: translateY(-50%);
+      z-index: 10;
+      max-width: 420px;
+      pointer-events: none;
+      opacity: 0;
+      animation: fadeInUp 2s ease 1.5s forwards;
+    }
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(-50%) translateX(20px); }
+      to { opacity: 1; transform: translateY(-50%) translateX(0); }
+    }
+
+    .letter-overlay .label {
+      font-size: 11px;
+      letter-spacing: 4px;
+      opacity: 0.25;
+      margin-bottom: 20px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    }
+
+    .letter-paper {
+      background: linear-gradient(135deg, #f5efe0 0%, #e8dcc8 100%);
+      padding: 40px 36px;
+      border-radius: 2px;
+      box-shadow:
+        0 20px 60px rgba(0,0,0,0.6),
+        0 0 0 1px rgba(212,197,169,0.1),
+        inset 0 1px 0 rgba(255,255,255,0.5);
+      position: relative;
+    }
+    .letter-paper::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 28px,
+        rgba(139,119,81,0.06) 28px,
+        rgba(139,119,81,0.06) 29px
+      );
+      pointer-events: none;
+      border-radius: 2px;
+    }
+
+    .letter-paper .content {
+      position: relative;
+      z-index: 1;
+    }
+
+    .letter-paper p {
+      color: #4a3728;
+      font-size: 15px;
+      line-height: 2;
+      letter-spacing: 1px;
+      text-align: justify;
+    }
+    .letter-paper p + p { margin-top: 6px; }
+    .letter-paper .salutation {
+      font-size: 18px;
+      margin-bottom: 16px;
+    }
+    .letter-paper .signoff {
+      margin-top: 20px;
+      text-align: right;
+    }
+    .letter-paper .signoff p {
+      font-size: 14px;
+      line-height: 1.8;
+    }
+
+    /* Bottom hint */
+    .hint {
+      position: fixed;
+      bottom: 36px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10;
+      font-size: 12px;
+      opacity: 0.2;
+      letter-spacing: 3px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      animation: pulse 2.5s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%,100% { opacity: 0.2; }
+      50% { opacity: 0.5; }
+    }
+
+    /* Decorative seal */
+    .seal {
+      position: absolute;
+      bottom: -12px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 44px;
+      height: 44px;
+      background: radial-gradient(circle at 40% 35%, #c0392b, #8b1a1a);
+      border-radius: 50%;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3), inset 0 1px 2px rgba(255,255,255,0.2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .seal::after {
+      content: '❤';
+      font-size: 16px;
+      color: rgba(255,255,255,0.6);
+    }
+
+    /* Responsive */
+    @media (max-width: 1024px) {
+      .letter-overlay {
+        right: 30px;
+        max-width: 340px;
+      }
+    }
+    @media (max-width: 768px) {
+      .letter-overlay {
+        right: 16px;
+        left: 16px;
+        top: auto;
+        bottom: 20px;
+        transform: none;
+        max-width: none;
+      }
+      @keyframes fadeInUp {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+      .letter-paper {
+        padding: 24px 20px;
+      }
+      .letter-paper p {
+        font-size: 13px;
+        line-height: 1.9;
+      }
+      .letter-paper .salutation { font-size: 15px; }
+      .header { padding: 16px 20px; }
+      .header-left, .header-right { font-size: 11px; }
+      .hint { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="loading" id="loading">
+  <div class="spinner"></div>
+  <span>展信</span>
+</div>
+
+<header class="header">
+  <div class="header-left">— 纸短情长 —</div>
+  <div class="header-right">手书</div>
+</header>
+
+<div class="letter-overlay" id="letterOverlay">
+  <div class="label">✦ 亲启 ✦</div>
+  <div class="letter-paper">
+    <div class="content">
+      <p class="salutation">吾妻思敏，展信安康。</p>
+      <p>随信寄二百银，以补家用。我一切无恙，生意昌顺。</p>
+      <p>行船入夜，恰江上升明月，圆如玉坠，仿若身在故乡，似与你并肩共赏。</p>
+      <p>江海万里，心中念你，便觉不遥远。</p>
+      <p>家中正是收获之季，你切勿操劳，万事量力而行。</p>
+      <p>日月如梭，我心唯有一人，一心不能二用。</p>
+      <p>每念家中烟火温暖，心中满是牵挂，只盼早日归乡团聚。</p>
+      <div class="signoff">
+        <p>夫 手书</p>
+        <p style="opacity:0.5; font-size:12px;">江畔夜书</p>
+      </div>
+    </div>
+    <div class="seal"></div>
+  </div>
+</div>
+
+<div class="hint">𖡹 拖动视角 · 细看书信</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+// ─── Scene ───
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x1a1410);
+
+const camera = new THREE.PerspectiveCamera(35, window.innerWidth / window.innerHeight, 0.1, 100);
+camera.position.set(4, 2.5, 5);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.0;
+document.body.prepend(renderer.domElement);
+
+// ─── Controls ───
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.dampingFactor = 0.05;
+controls.autoRotate = true;
+controls.autoRotateSpeed = 0.6;
+controls.minDistance = 2.5;
+controls.maxDistance = 12;
+controls.target.set(0, 0.2, 0);
+controls.update();
+
+// ─── Lights ───
+const amb = new THREE.AmbientLight(0x332211, 0.4);
+scene.add(amb);
+
+const hemi = new THREE.HemisphereLight(0xffcc88, 0x221100, 0.6);
+scene.add(hemi);
+
+const key = new THREE.DirectionalLight(0xffddaa, 1.8);
+key.position.set(3, 6, 4);
+scene.add(key);
+
+const fill = new THREE.DirectionalLight(0x8866ff, 0.3);
+fill.position.set(-3, 1, -2);
+scene.add(fill);
+
+const rim = new THREE.DirectionalLight(0xffaa66, 0.3);
+rim.position.set(-1, -2, -4);
+scene.add(rim);
+
+const candle = new THREE.PointLight(0xff8844, 0.6, 6);
+candle.position.set(0.8, -0.2, 0.6);
+scene.add(candle);
+
+// ─── Envelope 3D ───
+const envGroup = new THREE.Group();
+scene.add(envGroup);
+
+// Envelope body
+const envBodyGeo = new THREE.BoxGeometry(1.8, 0.06, 1.2);
+const envMat = new THREE.MeshPhysicalMaterial({
+  color: 0xf0e4ce,
+  metalness: 0.0,
+  roughness: 0.7,
+  side: THREE.DoubleSide,
+});
+const envBody = new THREE.Mesh(envBodyGeo, envMat);
+envBody.position.y = 0.03;
+envBody.castShadow = true;
+envGroup.add(envBody);
+
+// Envelope flap (triangle shape - back)
+const flapShape = new THREE.Shape();
+flapShape.moveTo(-0.9, 0);
+flapShape.lineTo(0, 0.7);
+flapShape.lineTo(0.9, 0);
+flapShape.closePath();
+const flapGeo = new THREE.ShapeGeometry(flapShape);
+const flapMat = new THREE.MeshPhysicalMaterial({
+  color: 0xe8dcc8,
+  metalness: 0.0,
+  roughness: 0.8,
+  side: THREE.DoubleSide,
+});
+const flap = new THREE.Mesh(flapGeo, flapMat);
+flap.rotation.x = -Math.PI;
+flap.position.y = 0.06;
+flap.position.z = 0.01;
+envGroup.add(flap);
+
+// Wax seal on envelope
+const sealGeo = new THREE.CylinderGeometry(0.12, 0.14, 0.04, 20);
+const sealMat = new THREE.MeshPhysicalMaterial({
+  color: 0x8b1a1a,
+  metalness: 0.1,
+  roughness: 0.5,
+  clearcoat: 0.3,
+});
+const sealEnvelope = new THREE.Mesh(sealGeo, sealMat);
+sealEnvelope.position.set(0, 0.08, -0.35);
+sealEnvelope.rotation.x = 0;
+envGroup.add(sealEnvelope);
+
+// Small ribbon
+function createRibbon() {
+  const pts = [
+    new THREE.Vector3(-0.95, 0.01, -0.3),
+    new THREE.Vector3(-0.7, 0.02, -0.1),
+    new THREE.Vector3(-0.3, 0.02, 0.1),
+    new THREE.Vector3(0, 0.02, 0.2),
+  ];
+  const curve = new THREE.CatmullRomCurve3(pts);
+  const tubeGeo = new THREE.TubeGeometry(curve, 20, 0.015, 6, false);
+  const tubeMat = new THREE.MeshPhysicalMaterial({
+    color: 0xb88a6b,
+    metalness: 0.05,
+    roughness: 0.4,
+  });
+  const ribbon = new THREE.Mesh(tubeGeo, tubeMat);
+  return ribbon;
+}
+envGroup.add(createRibbon());
+
+// Paper peeking out
+const paperGeo = new THREE.PlaneGeometry(1.5, 0.8);
+const canvas = document.createElement('canvas');
+canvas.width = 800;
+canvas.height = 640;
+const ctx = canvas.getContext('2d');
+
+// Draw paper texture
+ctx.fillStyle = '#f5efe0';
+ctx.fillRect(0, 0, 800, 500);
+
+// Subtle aged spots
+for (let i = 0; i < 30; i++) {
+  const x = Math.random() * 800;
+  const y = Math.random() * 500;
+  const r = 2 + Math.random() * 8;
+  const alpha = 0.01 + Math.random() * 0.03;
+  ctx.fillStyle = `rgba(139,119,81,${alpha})`;
+  ctx.beginPath();
+  ctx.arc(x, y, r, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+// Line guide
+ctx.strokeStyle = 'rgba(139,119,81,0.05)';
+ctx.lineWidth = 0.5;
+for (let y = 60; y < 600; y += 30) {
+  ctx.beginPath();
+  ctx.moveTo(60, y);
+  ctx.lineTo(740, y);
+  ctx.stroke();
+}
+
+// Handwrite text
+ctx.fillStyle = '#4a3728';
+ctx.font = '24px "STKaiti", "KaiTi", "楷体", serif';
+ctx.textAlign = 'left';
+ctx.textBaseline = 'top';
+
+const lines = [
+  { text: '吾妻思敏，展信安康。', x: 60, y: 40, size: 26 },
+  { text: '', x: 60, y: 70, size: 22 },
+  { text: '随信寄二百银，以补家用。', x: 60, y: 100, size: 22 },
+  { text: '我一切无恙，生意昌顺。', x: 60, y: 130, size: 22 },
+  { text: '', x: 60, y: 160, size: 22 },
+  { text: '行船入夜，恰江上升明月，', x: 60, y: 190, size: 22 },
+  { text: '圆如玉坠，仿若身在故乡，', x: 60, y: 220, size: 22 },
+  { text: '似与你并肩共赏。', x: 60, y: 250, size: 22 },
+  { text: '', x: 60, y: 280, size: 22 },
+  { text: '江海万里，心中念你，', x: 60, y: 310, size: 22 },
+  { text: '便觉不遥远。', x: 60, y: 340, size: 22 },
+  { text: '', x: 60, y: 370, size: 22 },
+  { text: '家中正是收获之季，', x: 60, y: 400, size: 22 },
+  { text: '你切勿操劳，万事量力而行。', x: 60, y: 430, size: 22 },
+  { text: '', x: 60, y: 460, size: 22 },
+  { text: '日月如梭，我心唯有一人，', x: 60, y: 490, size: 22 },
+  { text: '一心不能二用。', x: 60, y: 520, size: 22 },
+  { text: '', x: 60, y: 550, size: 22 },
+  { text: '每念家中烟火温暖，', x: 60, y: 580, size: 22 },
+  { text: '心中满是牵挂，', x: 60, y: 610, size: 22 },
+  { text: '只盼早日归乡团聚。', x: 60, y: 640, size: 22 },
+];
+
+lines.forEach(l => {
+  if (l.text) {
+    ctx.font = `${l.size}px "STKaiti", "KaiTi", "楷体", serif`;
+    ctx.fillText(l.text, l.x, l.y);
+  }
+});
+
+const texture = new THREE.CanvasTexture(canvas);
+texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+
+const paperMat = new THREE.MeshPhysicalMaterial({
+  map: texture,
+  side: THREE.DoubleSide,
+  transparent: true,
+  opacity: 1.0,
+  roughness: 0.8,
+  metalness: 0.0,
+});
+const paperMesh = new THREE.Mesh(paperGeo, paperMat);
+paperMesh.position.set(0, 0.07, 0.01);
+envGroup.add(paperMesh);
+
+// ─── Desk surface ───
+const deskGeo = new THREE.CircleGeometry(4, 64);
+const deskMat = new THREE.MeshPhysicalMaterial({
+  color: 0x2a1f18,
+  metalness: 0.0,
+  roughness: 0.9,
+  side: THREE.DoubleSide,
+});
+const desk = new THREE.Mesh(deskGeo, deskMat);
+desk.rotation.x = -Math.PI / 2;
+desk.position.y = -0.02;
+desk.receiveShadow = true;
+scene.add(desk);
+
+// ─── Fireflies / Particles ───
+const fireflyCount = 120;
+const ffGeo = new THREE.BufferGeometry();
+const ffPos = new Float32Array(fireflyCount * 3);
+const ffSizes = new Float32Array(fireflyCount);
+const ffData = [];
+for (let i = 0; i < fireflyCount; i++) {
+  const r = 1.5 + Math.random() * 4;
+  const angle = Math.random() * Math.PI * 2;
+  ffPos[i*3] = Math.cos(angle) * r;
+  ffPos[i*3+1] = 0.1 + Math.random() * 2.5;
+  ffPos[i*3+2] = Math.sin(angle) * r;
+  ffSizes[i] = 0.02 + Math.random() * 0.04;
+  ffData.push({
+    phaseX: Math.random() * Math.PI * 2,
+    phaseY: Math.random() * Math.PI * 2,
+    speed: 0.3 + Math.random() * 0.5,
+    radius: r,
+    baseY: ffPos[i*3+1],
+  });
+}
+ffGeo.setAttribute('position', new THREE.BufferAttribute(ffPos, 3));
+ffGeo.setAttribute('size', new THREE.BufferAttribute(ffSizes, 1));
+
+const ffMat = new THREE.PointsMaterial({
+  color: 0xffdd88,
+  size: 0.035,
+  transparent: true,
+  opacity: 0.4,
+  blending: THREE.AdditiveBlending,
+  sizeAttenuation: true,
+});
+const fireflies = new THREE.Points(ffGeo, ffMat);
+scene.add(fireflies);
+
+// ─── Petal particles ───
+const petalCount = 30;
+const pGeo = new THREE.BufferGeometry();
+const pPos = new Float32Array(petalCount * 3);
+const pData = [];
+for (let i = 0; i < petalCount; i++) {
+  pPos[i*3] = (Math.random() - 0.5) * 6;
+  pPos[i*3+1] = Math.random() * 3;
+  pPos[i*3+2] = (Math.random() - 0.5) * 6;
+  pData.push({
+    driftX: (Math.random() - 0.5) * 0.005,
+    driftZ: (Math.random() - 0.5) * 0.005,
+    rotSpeed: 0.5 + Math.random() * 1.5,
+  });
+}
+pGeo.setAttribute('position', new THREE.BufferAttribute(pPos, 3));
+
+const petalMat = new THREE.PointsMaterial({
+  color: 0xd4a5a5,
+  size: 0.04,
+  transparent: true,
+  opacity: 0.15,
+  blending: THREE.AdditiveBlending,
+  sizeAttenuation: true,
+});
+const petals = new THREE.Points(pGeo, petalMat);
+scene.add(petals);
+
+// ─── Ambient glow ring on desk ───
+const glowGeo = new THREE.RingGeometry(0.6, 1.2, 48);
+const glowMat = new THREE.MeshBasicMaterial({
+  color: 0x332211,
+  transparent: true,
+  opacity: 0.15,
+  side: THREE.DoubleSide,
+});
+const glow = new THREE.Mesh(glowGeo, glowMat);
+glow.rotation.x = -Math.PI / 2;
+glow.position.y = -0.01;
+scene.add(glow);
+
+// ─── Resize ───
+function onResize() {
+  const w = window.innerWidth;
+  const h = window.innerHeight;
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+  renderer.setSize(w, h);
+}
+window.addEventListener('resize', onResize);
+
+// ─── Animation ───
+const clock = new THREE.Clock();
+
+function animate() {
+  requestAnimationFrame(animate);
+  const t = clock.getElapsedTime();
+
+  // Fireflies
+  const pos = fireflies.geometry.attributes.position.array;
+  for (let i = 0; i < fireflyCount; i++) {
+    const d = ffData[i];
+    pos[i*3] = Math.cos(t * d.speed * 0.3 + d.phaseX) * d.radius;
+    pos[i*3+1] = d.baseY + Math.sin(t * d.speed * 0.5 + d.phaseY) * 0.2;
+    pos[i*3+2] = Math.sin(t * d.speed * 0.3 + d.phaseX * 1.3) * d.radius;
+  }
+  fireflies.geometry.attributes.position.needsUpdate = true;
+
+  // Firefly opacity pulse
+  ffMat.opacity = 0.3 + Math.sin(t * 0.5) * 0.15;
+
+  // Petals drift
+  const pp = petals.geometry.attributes.position.array;
+  for (let i = 0; i < petalCount; i++) {
+    pp[i*3] += pData[i].driftX;
+    pp[i*3+1] -= 0.002;
+    pp[i*3+2] += pData[i].driftZ;
+    if (pp[i*3+1] < -0.5) {
+      pp[i*3] = (Math.random() - 0.5) * 6;
+      pp[i*3+1] = 2.5 + Math.random() * 0.5;
+      pp[i*3+2] = (Math.random() - 0.5) * 6;
+      pData[i].driftX = (Math.random() - 0.5) * 0.005;
+      pData[i].driftZ = (Math.random() - 0.5) * 0.005;
+    }
+  }
+  petals.geometry.attributes.position.needsUpdate = true;
+
+  // Glow pulse
+  glow.material.opacity = 0.1 + Math.sin(t * 0.4) * 0.05;
+  glow.scale.setScalar(1 + Math.sin(t * 0.3) * 0.05);
+
+  controls.update();
+  renderer.render(scene, camera);
+}
+
+animate();
+
+// Hide loading
+setTimeout(() => {
+  document.getElementById('loading').classList.add('hidden');
+}, 1000);
+
+console.log('💌 情书已展');
+</script>
+</body>
+</html>
