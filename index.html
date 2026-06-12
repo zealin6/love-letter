@@ -277,7 +277,37 @@
     .close-btn.visible { display: flex; }
     .close-btn:hover { background: rgba(0,0,0,0.5); color: #fff; }
 
-    /* ─── Responsive ─── */
+    /* Music toggle */
+.music-btn {
+  position: fixed;
+  top: 24px; right: 72px;
+  z-index: 15;
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(0,0,0,0.25);
+  color: rgba(255,255,255,0.4);
+  font-size: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center; justify-content: center;
+  transition: all 0.4s;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  font-family: sans-serif;
+  opacity: 0;
+  animation: fadeIn 2s ease 3s forwards;
+}
+@keyframes fadeIn { to { opacity: 1; } }
+.music-btn:hover { background: rgba(0,0,0,0.4); color: #fff; }
+.music-btn.muted { opacity: 0.3; }
+.music-btn .note { transition: transform 0.6s ease; }
+.music-btn.muted .note { transform: scaleX(-1); opacity: 0.4; }
+.music-btn .spin { display: inline-block; animation: spinNote 3s linear infinite; }
+@keyframes spinNote { to { transform: rotate(360deg); } }
+.music-btn.muted .spin { animation: none; }
+
+/* ─── Responsive ─── */
     @media (max-width: 768px) {
       .letter-paper { padding: 32px 20px 28px; }
       .letter-paper p { font-size: 14px; line-height: 2; letter-spacing: 1px; }
@@ -288,6 +318,7 @@
       .letter-paper .inner .watermark { font-size: 80px; }
       .click-hint { bottom: 30px; }
       .close-btn { top: 12px; right: 12px; width: 36px; height: 36px; font-size: 16px; }
+      .music-btn { top: 12px; right: 56px; width: 36px; height: 36px; font-size: 13px; }
     }
     @media (max-width: 420px) {
       .letter-paper p { font-size: 13px; line-height: 1.9; }
@@ -313,6 +344,11 @@
 
 <!-- Close Button -->
 <button class="close-btn" id="closeBtn">&times;</button>
+<button class="music-btn" id="musicBtn"><span class="note spin">&#9835;</span></button>
+
+<audio id="bgm" loop preload="auto">
+  <source src="bgm.mp4" type="audio/mp4">
+</audio>
 
 <!-- Letter Overlay -->
 <div class="letter-overlay" id="letterOverlay">
@@ -699,10 +735,40 @@ function toggleLetter() {
 
 renderer.domElement.addEventListener('click', (e) => {
   if (!isLetterOpen) toggleLetter();
+  // Start BGM on first interaction
+  startBGM();
 });
 renderer.domElement.addEventListener('touchstart', (e) => {
   if (!isLetterOpen) { e.preventDefault(); toggleLetter(); }
+  startBGM();
 }, { passive: false });
+
+let bgmStarted = false;
+function startBGM() {
+  if (bgmStarted) return;
+  bgmStarted = true;
+  const bgm = document.getElementById('bgm');
+  if (bgm) {
+    bgm.volume = 0.3;
+    bgm.play().catch(() => {});
+  }
+}
+
+const musicBtn = document.getElementById('musicBtn');
+let bgmMuted = false;
+musicBtn.addEventListener('click', (e) => {
+  e.stopPropagation();
+  const bgm = document.getElementById('bgm');
+  if (!bgm) return;
+  bgmMuted = !bgmMuted;
+  if (bgmMuted) {
+    bgm.pause();
+    musicBtn.classList.add('muted');
+  } else {
+    bgm.play().catch(() => {});
+    musicBtn.classList.remove('muted');
+  }
+});
 
 document.getElementById('closeBtn').addEventListener('click', (e) => {
   e.stopPropagation();
